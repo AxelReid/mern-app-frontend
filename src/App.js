@@ -1,25 +1,90 @@
-import logo from './logo.svg';
-import './App.css';
+import { useEffect, useState, memo } from 'react'
+import request from './request'
+import { useGlobalContext } from './context'
+import { ThemeProvider } from 'styled-components'
+import { Route, Switch, useLocation, useHistory } from 'react-router-dom'
 
-function App() {
+import { GlobalStyle, all_theme } from './styles/global'
+import SignInUp from './pages/SignInUp'
+import PageLoading from './components/PageLoading'
+import Nav from './components/Nav'
+import Home from './pages/Home'
+import { Alert } from './components/customs'
+import Dashboard from './pages/Dashboard'
+import People from './pages/People'
+import Admin from './pages/Admin'
+
+const App = memo(() => {
+  const history = useHistory()
+  const { logout, userState, userDispatch, formOpen, currentTheme, alert } =
+    useGlobalContext()
+
+  const [fetching, setFetching] = useState(true)
+  const location = useLocation()
+  const route = location.pathname.split('/')[1]
+  const expections = ['sign-up', 'sign-in']
+  const expectError = [400, 401, 403]
+
+  const fetchUser = async () => {
+    try {
+      const user = await request.get('user/get-user')
+      userDispatch({ type: 'GET_USER', payload: { user: user.data } })
+      const posts = await request.get('/posts/get/')
+      userDispatch({ type: 'GET_POSTS', payload: { posts: posts.data } })
+      setFetching(false)
+    } catch (error) {
+      setFetching(false)
+      console.log('no login')
+      const { status } = error.response
+      const meetExpection = expectError.find((code) => code === status)
+      if (meetExpection) {
+        logout()
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (localStorage.getItem('auth_token')) {
+      setFetching(true)
+      fetchUser()
+    } else {
+      setFetching(false)
+    }
+  }, [])
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+    <ThemeProvider theme={all_theme[currentTheme]}>
+      <GlobalStyle
+        formOpen={formOpen}
+        userInfo={userState.user ? true : false}
+      />
+      {!expections.find((exp) => exp === route) && alert.msg && (
+        <Alert key='alert' top='40px' type='box' />
+      )}
+      {expections.find((expect) => expect === route) ? (
+        <SignInUp route={route} />
+      ) : (
+        <>
+          <Nav />
 
-export default App;
+          {fetching ? (
+            <PageLoading page={route} />
+          ) : userState.user ? (
+            <Switch location={location} key={location.pathname}>
+              <Route exact path='/' component={Home} />
+              <Route exact path='/dashboard' component={Dashboard} />
+              <Route exact path='/people' component={People} />
+              {userState.user.role === 'ADMIN' && (
+                <Route exact path='/admin' component={Admin} />
+              )}
+            </Switch>
+          ) : (
+            history.push('/sign-in')
+          )}
+        </>
+      )}
+    </ThemeProvider>
+  )
+})
+
+export default App
