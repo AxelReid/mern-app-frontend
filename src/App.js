@@ -14,6 +14,7 @@ import Dashboard from './pages/Dashboard'
 import People from './pages/People'
 import Admin from './pages/Admin'
 
+// just a comment
 const App = memo(() => {
   const history = useHistory()
   const { logout, userState, userDispatch, formOpen, currentTheme, alert } =
